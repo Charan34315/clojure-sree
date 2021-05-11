@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: doric:0.9.0">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/doric/doric/0.9.0/doric-0.9.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
