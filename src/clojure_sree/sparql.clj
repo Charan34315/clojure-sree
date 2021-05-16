@@ -57,9 +57,14 @@
                                        convert-to-decimal))]
     (zipmap keysfn (map gt-key keysfn))))
 
-(defn get-keysfn
-  [result-response]
-  ((comp keys first) result-response))
+(defn getnrecords
+  "Get `n` records from the query."
+  [n result]
+  (let [keyfn ((comp keys first) result)
+        mapfn (partial mapfn keyfn)]
+    (->> result
+         (map mapfn)
+         (take n))))
 
 ; Illustrations:
 ; Firstly, load the `olympics` RDF triple store to the local jena fuseki server.
@@ -88,16 +93,7 @@
 
 (def result-height (select-sparql endpoint height-query))
 
-(def keysfn (get-keysfn result-height))
-
-(def partialfn (partial mapfn keysfn))
-
-(defn get-n-height
-  "Get `n` records from the query."
-  [n]
-  (take n (map partialfn result-height)))
-
-(pretty/print-table (get-n-height 4))
+(pretty/print-table (getnrecords 4 result-height))
 
 ;----------------------------------------------------------------------------------------------
 ;Query to list an year alongside the oldest Judo competitor in that year.
@@ -120,16 +116,7 @@
 
 (def judo-result (select-sparql endpoint judo-oldest-query))
 
-(def keyfn-judo (get-keysfn judo-result))
-
-(def mapfn-judo (partial mapfn keyfn-judo))
-
-(defn get-n-judo
-  "Get `n` records from the query."
-  [n]
-  (take n (map mapfn-judo judo-result)))
-
-(pretty/print-table (get-n-judo 141) ) 
+(pretty/print-table (getnrecords 4 judo-result))
 
 ;---------------------------------------------------------------------------------
 ; Query to list names of every athlete with at least one medal, alongside their total number of medals
@@ -147,18 +134,9 @@
 
 (def result-medal (select-sparql endpoint query))
 
-(def keyfn (get-keysfn result-medal))
-
-(def mapfn-re (partial mapfn keyfn))
-
-(defn get-n-medal
-  "Get `n` records from the query."
-  [n]
-  (take n (map mapfn-re result-medal)))
-
 ;; return details of only top 3 players from the lazy sequence.
 
-(pretty/print-table (get-n-medal 3))
+(pretty/print-table (getnrecords 3 result-medal))
 
 ; ----------------------------------------------------------------------------------------------------------------
 
@@ -182,7 +160,7 @@
   (if (and (int? offset) (pos-int? limit) (>= offset 0))
     (let [rndrd-qry (p/render stored-procedure-limit {:limit limit :offset offset})
           rndrd-rslt (select-sparql endpoint rndrd-qry)
-          k-rslt (get-keysfn rndrd-rslt)
+          k-rslt ((comp keys first) rndrd-rslt)
           mapfn-s (partial mapfn k-rslt)]
       (mapv mapfn-s rndrd-rslt))
     "Enter a positive integer for the parameters."))
@@ -257,7 +235,7 @@
   [query parameter]
   (let [tru-val (some not-allowed-words (s/split (s/upper-case parameter) #" "))]
     (if-not (empty? tru-val)
-      {:exception "SPARQL code should not be part of variable values."
+      {:exception "SPARQL script should not be part of variable values."
        :security "injection-attack-mitigation:sparql-code"}
       (if (some #(= parameter %) player-list)
         (execute-stored-procedure query parameter)
@@ -266,7 +244,6 @@
 ;return the total gold medlas of a random player from the player-list,
 ;after passing through mitigation check.
 (mitigate-keyword stored-procedure-name (rand-nth player-list))
-
 
 ;; unit tests
 (t/deftest testing-mitigate-keyword-stored-procedure
